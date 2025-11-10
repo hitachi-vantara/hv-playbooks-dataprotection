@@ -23,6 +23,7 @@
         $limitStoargeConsumtion = ${{ LimitStoargeConsumtion }}
         $storageSizeLimit = "{{ StorageSizeLimit }}"
         $connectionType = "{{ Connection_type }}"
+        $enableImmutability = ${{ EnableImmutability }}
 
        #Executing Veeam PowerShell Commands using above defined variable 
         $account = Get-VBRAmazonAccount
@@ -30,7 +31,7 @@
         $bucket = Get-VBRAmazonS3Bucket -Connection $connect -Name $bucketName
         $folder = New-VBRAmazonS3Folder -Connection $connect -Bucket $bucket -Name $folderName
 
-        Add-VBRAmazonS3CompatibleRepository -AmazonS3Folder $folder -Connection $connect -Name $veeamStorage -Description $storageDescription -EnableBackupImmutability -ImmutabilityPeriod $objectLockTime -EnableConcurrentTasksLimit -MaxConcurrentTasks $concurrentTask -EnableSizeLimit:$limitStoargeConsumtion -SizeLimit $storageSizeLimit -EnableBucketAutoProvision:$enableBucketAutoCreate -Force
+        Add-VBRAmazonS3CompatibleRepository -AmazonS3Folder $folder -Connection $connect -Name $veeamStorage -Description $storageDescription -EnableBackupImmutability:$enableImmutability -ImmutabilityPeriod $objectLockTime -EnableConcurrentTasksLimit -MaxConcurrentTasks $concurrentTask -EnableSizeLimit:$limitStoargeConsumtion -SizeLimit $storageSizeLimit -EnableBucketAutoProvision:$enableBucketAutoCreate -Force
       
       register: ps_result
 
