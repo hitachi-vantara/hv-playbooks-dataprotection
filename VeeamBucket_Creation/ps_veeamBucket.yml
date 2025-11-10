@@ -1,0 +1,47 @@
+---
+- name: Run PowerShell commands on remote Windows host
+  hosts: windows_host
+  gather_facts: no
+  vars_files:
+    - veeamBucket_vars.yml
+
+  tasks:
+
+    - name: Execute PowerShell commands using win_shell
+      ansible.windows.win_shell: |
+       #Defining Ansible variable to powershell variable
+        $bucketName = "{{ Storage_bucket }}"
+        $region_id = "{{ Region }}"
+        $service_url = "{{ Service_Point }}"
+        $gateway = "{{ Gateway_servers | join('", "') }}"
+        $folderName = "{{ Bucket_folder }}"
+        $veeamStorage = "{{ Veeam_Stoarge_name }}"
+        $storageDescription = "{{ Veeam_Storage_Description }}"
+        $objectLockTime = "{{ ImmutabilityPeriod }}"
+        $concurrentTask = "{{ Veeam_MaxConcurrentTasks }}"
+        $enableBucketAutoCreate = ${{ EnableBucketAutoCreate }}
+        $limitStoargeConsumtion = ${{ LimitStoargeConsumtion }}
+        $storageSizeLimit = "{{ StorageSizeLimit }}"
+        $connectionType = "{{ Connection_type }}"
+
+       #Executing Veeam PowerShell Commands using above defined variable 
+        $account = Get-VBRAmazonAccount
+        $connect = Connect-VBRAmazonS3CompatibleService -Account $account -CustomRegionId $region_id -ServicePoint $service_url -GatewayServer @($gateway) -ConnectionType $connectionType -Force
+        $bucket = Get-VBRAmazonS3Bucket -Connection $connect -Name $bucketName
+        $folder = New-VBRAmazonS3Folder -Connection $connect -Bucket $bucket -Name $folderName
+
+        Add-VBRAmazonS3CompatibleRepository -AmazonS3Folder $folder -Connection $connect -Name $veeamStorage -Description $storageDescription -EnableBackupImmutability -ImmutabilityPeriod $objectLockTime -EnableConcurrentTasksLimit -MaxConcurrentTasks $concurrentTask -EnableSizeLimit:$limitStoargeConsumtion -SizeLimit $storageSizeLimit -EnableBucketAutoProvision:$enableBucketAutoCreate -Force
+      
+      register: ps_result
+
+    - name: Display output
+      ansible.builtin.debug:
+        var: ps_result.stdout_lines 
+
+    - name: Show exact error if command failed
+      debug:
+        msg: |
+          Task failed with error:
+          {{ ps_result.stderr | default('No stderr available') }}
+      when: ps_result.rc != 0
+

@@ -1,0 +1,15 @@
+Region: "cluster01"
+Service_Point: "s3.cluster01.vmvsp1o1.gpsecontent.local"
+Storage_bucket: "newvariabletest10"
+Bucket_folder: "TestFolder_team"
+Veeam_Stoarge_name: "Ansible Test Bucket dynamic gateways"
+Veeam_Storage_Description: "Testing Ansible"
+ImmutabilityPeriod: 1
+EnableBucketAutoCreate: false
+Veeam_MaxConcurrentTasks: 30
+Connection_type: "Gateway"   #Mention connection type "Gateway" or "Direct"
+LimitStoargeConsumtion: false
+StorageSizeLimit: 10240 #This value is in GB and minimum limit is 10 TB which makes it 10240 GB.
+
+Gateway_servers:
+  - WIN-R2TRQ443FKU
