@@ -13,4 +13,4 @@ LimitStoargeConsumtion: false
 StorageSizeLimit: 10240 #This value is in GB and minimum limit is 10 TB which makes it 10240 GB.
 #Below you can add more gateway servers if u need to add
 Gateway_servers:
-  - WIN-R9TKQ483gKU
+  - WIN-R9TKQ483GKU
