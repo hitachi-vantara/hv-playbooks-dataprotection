@@ -3,9 +3,10 @@
 # This File explains how to run a YAML file to create a Veeam storage repository.
 
 ## User Pre-requisites:
-- The Veeam version can be v12 or higher. All three of these files should be in the same folder/location.
-- WinRM service should be enabled on Windows with a listening port of 5985
-- Should have the Ansible Windows module installed.
+- The Veeam version must be v12 or higher. All three files should be located in the same folder.
+- The WinRM service must be enabled on the Windows machine and configured to listen on port 5985.
+- The Ansible Windows module must be installed at system where the script is going to run.
+- The AWS Cloud user credentials should be configured in Veeam BnR, as its access key will be used in the variable file.
       
       https://galaxy.ansible.com/ui/repo/published/ansible/windows/
       
@@ -16,6 +17,7 @@
    - ansible_user: "Provide server user name"
    - ansible_password: "Provide Server Password"
    - ansible_connection=winrm (mention Windows service)
+   - ansible_winrm_server_cert_validation=ignore (to skip the cert validation)
 
 Example:
 
@@ -33,6 +35,7 @@ Example:
    ### Details to be entered to execute the bucket configuration :
    - Region: Mention the region of the VSP One Object
    - Service_Point: Mention the S3 service endpoint of VSP One Object
+   - Access_Key: provide the access key of the user/account as the veeam may have multiple users.
    - Storage_bucket: Mention the S3 bucket name, which is already created on VSP One Object
    - Bucket_folder: Mention the folder name that is to be created inside the bucket during Veeam storage creation.
    - Veeam_Stoarge_name: Veeam Stoarge repository name
@@ -49,12 +52,13 @@ Example:
 Example:
 
       Region: "cluster01"
-      Service_Point: "s3.cluster01.vmvsp1o1.gpsecontent.local"
-      Storage_bucket: "newvariabletest10"
-      Bucket_folder: "TestFolder_team"
-      Veeam_Stoarge_name: "Ansible Test Bucket dynamic gateways"
+      Service_Point: "s3.us-east-1.vsp1o.domain.com"
+	  Access_Key: "AKIAJlUvsoWiDxRINikQ"
+      Storage_bucket: "s3bucket"
+      Bucket_folder: "TestFolder"
+      Veeam_Stoarge_name: "Ansible Bucket"
       Veeam_Storage_Description: "Testing Ansible"
-      EnableImmutability: false
+      EnableImmutability: true
       ImmutabilityPeriod: 1
       EnableBucketAutoCreate: false
       Veeam_MaxConcurrentTasks: 2
