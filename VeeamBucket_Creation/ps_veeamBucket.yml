@@ -24,9 +24,10 @@
         $storageSizeLimit = "{{ StorageSizeLimit }}"
         $connectionType = "{{ Connection_type }}"
         $enableImmutability = ${{ EnableImmutability }}
+        $accessKey = "{{ Access_Key }}"
 
        #Executing Veeam PowerShell Commands using above defined variable 
-        $account = Get-VBRAmazonAccount
+        $account = Get-VBRAmazonAccount -AccessKey $accessKey
         $connect = Connect-VBRAmazonS3CompatibleService -Account $account -CustomRegionId $region_id -ServicePoint $service_url -GatewayServer @($gateway) -ConnectionType $connectionType -Force
         $bucket = Get-VBRAmazonS3Bucket -Connection $connect -Name $bucketName
         $folder = New-VBRAmazonS3Folder -Connection $connect -Bucket $bucket -Name $folderName
