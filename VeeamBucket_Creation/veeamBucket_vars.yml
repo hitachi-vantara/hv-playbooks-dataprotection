@@ -1,10 +1,11 @@
 Region: "us-east-1"
 Service_Point: "s3.us-east-1.vsp1o.local.com"
+Access_Key: "AKIAJlUvsoWiDxRINikQ"
 Storage_bucket: "s3bucket"
 Bucket_folder: "TestFolder"
 Veeam_Stoarge_name: "Ansible Test Bucket"
 Veeam_Storage_Description: "Testing Ansible"
-EnableImmutability: false
+EnableImmutability: true
 ImmutabilityPeriod: 1
 EnableBucketAutoCreate: false
 Veeam_MaxConcurrentTasks: 2
@@ -14,3 +15,4 @@ StorageSizeLimit: 10240 #This value is in GB and minimum limit is 10 TB which ma
 #Below you can add more gateway servers if u need to add
 Gateway_servers:
   - WIN-R9TKQ483GKU
+  - 172.23.19.523
