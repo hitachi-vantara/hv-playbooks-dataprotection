@@ -7,8 +7,10 @@
 - The WinRM service must be enabled on the Windows machine and configured to listen on port 5985.
 - The Ansible Windows module must be installed at system where the script is going to run.
 - The AWS Cloud user credentials should be configured in Veeam BnR, as its access key will be used in the variable file to detect which account to be used.
-      
-      https://galaxy.ansible.com/ui/repo/published/ansible/windows/
+
+  Ansible Windows module:
+        
+     	ansible-galaxy collection install ansible.windows
       
 ## 1. Enter the details in the file to execute:
    
