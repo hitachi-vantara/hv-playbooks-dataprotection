@@ -5,7 +5,7 @@ VSP One Object 3.1
 ## Software requirements
 Red Hat Ansible Core - 2.18, 2.19, or latest
 
-Python - 3.7 or higher with the package "boto3-1.40.38" and "botocore-1.40.38" in the Python library, so that S3 connections can happen
+Python - 3.7 or higher with the package.
 
 ## Supported operating systems
 Oracle Enterprise Linux 8.9 or higher
