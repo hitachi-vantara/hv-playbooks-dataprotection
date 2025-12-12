@@ -1,0 +1,16 @@
+user_name: "CommandCenter_username"
+user_pass: "CommandCenter_Password_base64_format"
+HDPS_host: "HDPS_host_IP"
+
+HDPS_cloud_library: "HDPS_cloudStoarge_Name"
+Media_agent: "Media Agnet"
+Saved_Cred: "Saved_Credentials"
+VSP1o_S3_Bucket_name: "S3_Bucket_name"
+Enable_object_lock: false #boolean value for enable/disbale storage lock
+Retention_period: 22    #int value for retention period for storage lock
+Dedupe_Media_agent: "Dedupe Media agent"
+Dedupe_Media_agent_path: "Optional path value"
+Deduplication_enable: true #boolean value for enable/disbale Deduplication
+
+s3_service_endpoint: "s3.Region.vsp.domain.com(Region)"
+HDPS_validate_certs: false  #boolean value for enable/disbale cert validation

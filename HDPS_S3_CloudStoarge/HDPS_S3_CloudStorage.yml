@@ -1,0 +1,187 @@
+---
+- name: Create HDPS S3-compatible object storage repository via REST API
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - hdps_vault.yml
+  vars:
+    ma_query: "[?displayName=='{{ Media_agent }}'].id | [0]"
+    ddp_ma_query: "[?displayName=='{{ Dedupe_Media_agent }}'].id | [0]"
+    cred_query: "[?name=='{{ Saved_Cred }}'].id | [0]"
+
+  tasks:
+    - name: Create HDPS Login Token
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/login"
+        method: POST
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+        body: |
+          {
+            "username": "{{ user_name }}",
+            "password": "{{ user_pass }}"
+          }
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_token
+      no_log: false
+
+    - name: GET HDPS Media Agent
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/v4/mediaagent "
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_media
+      no_log: false
+
+    - name: Get ID For Specific Media Agent
+      set_fact:
+        ma_id: "{{ HDPS_media.json.mediaAgents | json_query(ma_query) }}"
+
+    - name: Get ID for specific Dedupe Media Agent
+      set_fact:
+        ddp_ma_id: "{{ HDPS_media.json.mediaAgents | json_query(ddp_ma_query) }}"
+
+    - name: GET Saved credentials List
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/v4/credential"
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_credentials
+      no_log: false
+
+    - name: Get Cred ID for specific displayName Saved
+      set_fact:
+        cred_id: "{{ HDPS_credentials.json.credentialManager | json_query(cred_query) }}"
+
+
+    - name: Create HDPS Cloud Library
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/v4/storage/cloud"
+        method: POST
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        body: |
+          {
+            "name": "{{ HDPS_cloud_library }}",
+            "mediaAgent": {
+              "id": "{{ ma_id }}",
+              "name": "{{ Media_agent }}"
+            },
+
+            "cloudType": "Hitachi Content Platform for Cloud Scale",
+            "serviceHost": "{{ s3_service_endpoint }}",
+            "credentials": {
+              "id": "{{ cred_id }}",
+              "name": "{{ Saved_Cred }}"
+            },
+            "bucket": "{{ VSP1o_S3_Bucket_name }}",
+            "storageClass": "Standard",
+            "useDeduplication": "{{ Deduplication_enable }}",
+            "deduplicationDBLocation": [
+              {
+                "path": "{{ Dedupe_Media_agent_path }}",
+                "mediaAgent": {
+                  "id": "{{ ddp_ma_id }}",
+                  "name": "{{ Dedupe_Media_agent }}"
+                }
+              }
+            ]
+          }
+        return_content: yes
+        timeout: 700
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_cloud
+      no_log: false
+
+    - name: HDPS Commvault - Cloud Library Details [JSON]
+      ansible.builtin.debug:
+        var: HDPS_cloud
+
+    - name: HDPS Commvault - Cloud Library Name
+      debug:
+        msg: " Name of the Cloud Library is - {{ HDPS_cloud.json.name }}"
+      when: (HDPS_cloud.json.errorCode | int) == 0
+
+    - name: Below JSON output will be shown if the Creation of Cloud Library fails
+      debug:
+        msg: " ERROR:  {{ HDPS_cloud.json }}"
+      when: (HDPS_cloud.json.errorCode | int) != 0
+
+
+    - name: End entire play if Error is observed
+      meta: end_play
+      when: (HDPS_cloud.json.errorCode | int) != 0
+
+
+    - name: GET Storage Pool copy ID
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/storagepool/{{ HDPS_cloud.json.id }}"
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_copy_ID
+      no_log: false
+      when: Enable_object_lock | default(false) | bool
+
+    - name: Enabling object lock on HDPS cloud library
+      uri:
+        url: "https://{{ HDPS_host }}/commandcenter/api/V2/StoragePolicy/{{ HDPS_cloud.json.id | int }}/Copy/{{ HDPS_copy_ID.json.storagePoolDetails.copyInfo.StoragePolicyCopy.copyId | int }}"
+        method: PUT
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        body: |
+          {
+            "isObjectLevelLockSupported": true,
+            "storagePolicyCopyInfo": {
+              "retentionRules": {
+                "retainBackupDataForDays": {{Retention_period}} 
+              },
+              "copyFlags": {
+                "wormCopy": 1
+              }
+            },
+            "isWormStorage": true,
+            "forceCopyToFollowPoolRetention": true
+          }
+
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: enable_obj
+      no_log: false
+      when: Enable_object_lock | default(false) | bool
+
+    - name: Display output Enabling object lock
+      ansible.builtin.debug:
+        var: enable_obj.json
+      when: Enable_object_lock | default(false) | bool
