@@ -14,3 +14,11 @@ Deduplication_enable: true #boolean value for enable/disbale Deduplication
 
 s3_service_endpoint: "s3.Region.vsp.domain.com(Region)"
 HDPS_validate_certs: false  #boolean value for enable/disbale cert validation
+
+#Enter the details below if a second Media Agent and Dedupe Media Agent are needed in the same Cloud Library.
+
+Add_Media_Agent_To_CloudLibrary: false #boolean value for enable/disbale media agent
+Media_agent2: "Media Agent 2"
+
+add_dedupeMediaAgent: false  #boolean value for enable/disbale Deduplication media agent
+Dedupe_Media_agent2: "Dedupe media agent 2"
