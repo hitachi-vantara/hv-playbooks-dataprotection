@@ -23,6 +23,10 @@ User Pre-requisites:
    - Deduplication_enable: Enter a boolean value for enable/disable Deduplication option
    - s3_service_endpoint: Enter the S3 service endpoint of storage
    - HDPS_validate_certs: Enter boolean value for enable/disable cert validation
+   - Add_Media_Agent_To_CloudLibrary: Enter boolean (true/false) value for enable/disbale media agent, else it will take default value as False
+   - Media_agent2: Enter second Media Agent name to be added on same HDPS Cloud Library.
+   - add_dedupeMediaAgent: Enter boolean (true/false) value for enable/disbale deduplication media agent, else it will take default value as False
+   - Dedupe_Media_agent2: Enter second Dedupelication Media Agent name to be added on same HDPS Cloud Library
 
 	Example:
 	user_name: "CommandCenter_username"
@@ -41,6 +45,12 @@ User Pre-requisites:
 
 	s3_service_endpoint: "s3.Region.vsp.domain.com(Region)"
 	HDPS_validate_certs: false 
+
+	Add_Media_Agent_To_CloudLibrary: false #boolean value for enable/disbale media agent
+	Media_agent2: "Media Agent 2"
+
+	add_dedupeMediaAgent: false  #boolean value for enable/disbale Deduplication media agent
+	Dedupe_Media_agent2: "Dedupe media agent 2"
    
 ### 2. To trigger the YAML file to create the storage component:
    - Locate the YAML file: HDPS_S3_CloudStorage.yml
