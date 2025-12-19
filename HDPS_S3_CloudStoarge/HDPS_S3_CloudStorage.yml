@@ -4,15 +4,38 @@
   gather_facts: false
   vars_files:
     - hdps_vault.yml
+
   vars:
     ma_query: "[?displayName=='{{ Media_agent }}'].id | [0]"
     ddp_ma_query: "[?displayName=='{{ Dedupe_Media_agent }}'].id | [0]"
     cred_query: "[?name=='{{ Saved_Cred }}'].id | [0]"
+    ma_query2: "[?displayName=='{{ Media_agent2 }}'].id | [0]"
+    ddp_ma_query2: "[?displayName=='{{ Dedupe_Media_agent2 }}'].id | [0]"
+    HDPS_URL: "https://{{ HDPS_host }}/commandcenter/api"
 
   tasks:
+
+    - name: Validate string variables are not null or empty
+      vars:
+        required_string_vars:
+          - user_name
+          - user_pass
+          - HDPS_host
+          - HDPS_cloud_library
+          - Media_agent
+          - Saved_Cred
+          - VSP1o_S3_Bucket_name
+          - s3_service_endpoint
+
+      assert:
+        that:
+          - (vars[item] is defined) and (vars[item] is not none) and ((vars[item] | string | trim | length) > 0)
+        fail_msg: "Variable '{{ item }}' is missing or empty."
+      loop: "{{ required_string_vars }}"
+
     - name: Create HDPS Login Token
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/login"
+        url: "{{HDPS_URL}}/login"
         method: POST
         headers:
           Accept: "application/json"
@@ -31,7 +54,7 @@
 
     - name: GET HDPS Media Agent
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/v4/mediaagent "
+        url: "{{HDPS_URL}}/v4/mediaagent "
         method: GET
         headers:
           Accept: "application/json"
@@ -54,7 +77,7 @@
 
     - name: GET Saved credentials List
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/v4/credential"
+        url: "{{HDPS_URL}}/v4/credential"
         method: GET
         headers:
           Accept: "application/json"
@@ -71,10 +94,9 @@
       set_fact:
         cred_id: "{{ HDPS_credentials.json.credentialManager | json_query(cred_query) }}"
 
-
     - name: Create HDPS Cloud Library
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/v4/storage/cloud"
+        url: "{{HDPS_URL}}/v4/storage/cloud"
         method: POST
         headers:
           Accept: "application/json"
@@ -108,7 +130,7 @@
             ]
           }
         return_content: yes
-        timeout: 700
+        timeout: 1000
         validate_certs: "{{ HDPS_validate_certs | default(true) }}"
         body_format: json
       register: HDPS_cloud
@@ -128,15 +150,13 @@
         msg: " ERROR:  {{ HDPS_cloud.json }}"
       when: (HDPS_cloud.json.errorCode | int) != 0
 
-
     - name: End entire play if Error is observed
       meta: end_play
       when: (HDPS_cloud.json.errorCode | int) != 0
 
-
     - name: GET Storage Pool copy ID
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/storagepool/{{ HDPS_cloud.json.id }}"
+        url: "{{HDPS_URL}}/storagepool/{{ HDPS_cloud.json.id }}"
         method: GET
         headers:
           Accept: "application/json"
@@ -152,7 +172,7 @@
 
     - name: Enabling object lock on HDPS cloud library
       uri:
-        url: "https://{{ HDPS_host }}/commandcenter/api/V2/StoragePolicy/{{ HDPS_cloud.json.id | int }}/Copy/{{ HDPS_copy_ID.json.storagePoolDetails.copyInfo.StoragePolicyCopy.copyId | int }}"
+        url: "{{HDPS_URL}}/V2/StoragePolicy/{{ HDPS_cloud.json.id | int }}/Copy/{{ HDPS_copy_ID.json.storagePoolDetails.copyInfo.StoragePolicyCopy.copyId | int }}"
         method: PUT
         headers:
           Accept: "application/json"
@@ -184,4 +204,86 @@
     - name: Display output Enabling object lock
       ansible.builtin.debug:
         var: enable_obj.json
-      when: Enable_object_lock | default(false) | bool
+      when: Enable_object_lock | default(false) | bool and (enable_obj.json.error.errorCode | int) != 0
+
+    - name: End playbook if Secondary Media Agent and Secondary Dedupe Media Agents are not required 
+      meta: end_play
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool == false and add_dedupeMediaAgent | default(false) | bool == false
+
+    - name: Get ID For Specific Media Agent
+      set_fact:
+        ma_id2: "{{ HDPS_media.json.mediaAgents | json_query(ma_query2) }}"
+
+    - name: Get ID for specific Dedupe Media Agent
+      set_fact:
+        ddp_ma_id2: "{{ HDPS_media.json.mediaAgents | json_query(ddp_ma_query2) }}"
+
+    - name: Getting Bucket ID
+      uri:
+        url: "{{HDPS_URL}}/v4/storage/cloud/{{ HDPS_cloud.json.id }}"
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: bucket_info
+      no_log: false
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Bucket ID Details
+      set_fact:
+        bucket_id: "{{bucket_info.json.bucket[0].id}}"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Add Secondary HDPS Media Agent
+      uri:
+        url: "{{HDPS_URL}}/v4/storage/cloud/{{ HDPS_cloud.json.id }}/bucket/{{bucket_id}}/accesspath"
+        method: POST
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        body: |
+          {
+            "mediaAgent": {
+              "id": "{{ma_id2}}",
+              "name": "{{ Media_agent2 }}"
+            }
+          }
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: Add_MA
+      no_log: false
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Error For Media Agent If Occured
+      debug:
+        msg: "{{ Add_MA.json }}"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool and (Add_MA.json.error.errorCode | int) != 0
+
+    - name: Adding Secondary DDB Media Agent
+      uri:
+        url: "{{HDPS_URL}}/V4/StoragePool/{{ HDPS_cloud.json.id }}/MediaAgent?mediaAgentId={{ ddp_ma_id2 }}&action=ADD_DDB_ROLE"
+        method: PUT
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: Add_DDB_MA
+      no_log: false
+      when: add_dedupeMediaAgent| default(false) | bool
+
+    - name: Error For Dedupe Media Agent If Occured
+      debug:
+        msg: "{{Add_DDB_MA.json}}"
+      when: add_dedupeMediaAgent| default(false) | bool and (Add_DDB_MA.json.errorCode | int) != 0
