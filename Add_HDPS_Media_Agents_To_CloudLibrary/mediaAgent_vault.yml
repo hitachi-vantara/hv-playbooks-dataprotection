@@ -1,0 +1,12 @@
+user_name: "Username"
+user_pass: "Password_in_Base64"
+HDPS_host: "Host_IP"
+HDPS_cloud_library: "Existing Cloud library"
+
+Add_Media_Agent_To_CloudLibrary: true  
+Media_agent: "MediaAgent name" 
+
+add_dedupeMediaAgent: true
+Dedupe_Media_agent: "Deduplication-MediaAgent name"
+
+HDPS_validate_certs: false

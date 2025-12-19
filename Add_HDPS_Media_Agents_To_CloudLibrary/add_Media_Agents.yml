@@ -1,0 +1,157 @@
+---
+- name: Create HDPS S3-compatible object storage repository via REST API
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - mediaAgent_vault.yml
+  vars:
+    ma_query: "[?displayName=='{{ Media_agent }}'].id | [0]"
+    sp_query: "[?storagePoolEntity.storagePoolName=='{{HDPS_cloud_library}}'].storagePoolEntity.storagePoolId | [0]"
+    ddb_query: "[?displayName=='{{ Dedupe_Media_agent }}'].id | [0]"
+    HDPS_URL: "https://{{ HDPS_host }}/commandcenter/api"
+
+  tasks:
+
+    - name: Notify that playbook will end because Media Agent and Dedupe Media Agents are not required
+      debug:
+        msg: "Playbook execution stopped: Both Media Agent and Dedupe Media Agents are not required as not mentioned as 'true' in variable file"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool == false and add_dedupeMediaAgent | default(false) | bool == false
+
+    - name: End playbook if Media Agent and Dedupe Media Agents are not required
+      meta: end_play
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool == false and add_dedupeMediaAgent | default(false) | bool == false
+
+    - name: Create HDPS Login Token
+      uri:
+        url: "{{ HDPS_URL }}/login"
+        method: POST
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+        body: |
+          {
+            "username": "{{ user_name }}",
+            "password": "{{ user_pass }}"
+          }
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_token
+      no_log: false
+
+    - name: GET HDPS Media Agent
+      uri:
+        url: "{{ HDPS_URL }}/v4/mediaagent "
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: HDPS_media
+      no_log: false
+
+
+    - name: Get ID For Specific Media Agent
+      set_fact:
+        ma_id: "{{ HDPS_media.json.mediaAgents | json_query(ma_query) }}"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Get ID For Specific DDB Media Agent
+      set_fact:
+        ddb_id: "{{ HDPS_media.json.mediaAgents | json_query(ddb_query) }}"
+      when: add_dedupeMediaAgent| default(false) | bool
+
+    - name: Getting Storage Pool ID
+      uri:
+        url: "{{ HDPS_URL }}/storagepool"
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: pool_info
+      no_log: false
+
+    - name: Storage pool ID Details
+      set_fact:
+        poolID: "{{ pool_info.json.storagePoolList | json_query(sp_query) }}" 
+
+    - name: Getting Bucket ID
+      uri:
+        url: "{{ HDPS_URL }}/v4/storage/cloud/{{poolID}}"
+        method: GET
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 400
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: bucket_info
+      no_log: false
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Bucket ID Details
+      set_fact:
+        bucket_id: "{{bucket_info.json.bucket[0].id}}"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Add HDPS Media Agent
+      uri:
+        url: "{{ HDPS_URL }}/v4/storage/cloud/{{poolID}}/bucket/{{bucket_id}}/accesspath"
+        method: POST
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        body: |
+          {
+            "mediaAgent": {
+              "id": "{{ma_id}}",
+              "name": "{{ Media_agent }}"
+            }
+          }
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: Add_MA
+      no_log: false
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool
+
+    - name: Error For Media Agent If Occured
+      debug:
+        msg: "{{Add_MA.json}}"
+      when: Add_Media_Agent_To_CloudLibrary | default(false) | bool and (Add_MA.json.error.errorCode | int) != 0
+
+    - name: Adding DDB Media Agent
+      uri:
+        url: "{{ HDPS_URL }}/V4/StoragePool/{{poolID}}/MediaAgent?mediaAgentId={{ddb_id}}&action=ADD_DDB_ROLE"
+        method: PUT
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          Authtoken: "{{HDPS_token.json.token}}"
+        return_content: yes
+        timeout: 300
+        validate_certs: "{{ HDPS_validate_certs | default(true) }}"
+        body_format: json
+      register: Add_DDB_MA
+      no_log: false
+      when: add_dedupeMediaAgent| default(false) | bool
+
+    - name: Error For Dedupe Media Agent If Occured
+      debug:
+        msg: "{{Add_DDB_MA.json}}"
+      when: add_dedupeMediaAgent| default(false) | bool and (Add_DDB_MA.json.errorCode | int) != 0
+
