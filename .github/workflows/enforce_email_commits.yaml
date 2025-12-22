@@ -1,49 +1,66 @@
-name: Block Unapproved Emails
+name: Enforce Commit Email and Signature Policy
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
-  check-committer-email:
-    runs-on: [self-hosted, linux, x64]
+  check-commits:
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Get recent commits and validate email
+      - name: Validate commits
         run: |
+          set -e
+
           echo "Event: ${{ github.event_name }}"
-          echo "Ref: ${{ github.ref }}"
-          
-          BRANCH_NAME=""
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
           else
-            BRANCH_NAME="${{ github.ref_name }}"
+            echo "Unsupported event: ${{ github.event_name }}"
+            exit 1
           fi
 
-          echo "Checking commits on branch: $BRANCH_NAME"
-
-          git fetch origin $BRANCH_NAME
-
-          EMAILS=$(git log origin/$BRANCH_NAME -n 100 --pretty=format:'%ae')
-
-          echo "Commit emails:"
-          echo "$EMAILS"
+          echo "Checking commits between $BASE_SHA and $HEAD_SHA..."
 
           BLOCKED=false
 
-          for email in $EMAILS; do
-            if [[ "$email" == *@hitachivantara.com ]] || [[ "$email" == *@hitachids.com ]] || [[ "$email" =~ @users\.noreply\.github\.com$ ]]; then
-              echo "Allowed: $email"
+          git log ${BASE_SHA}..${HEAD_SHA} --pretty=format:"%H|%ae|%G?|%GS" | while IFS="|" read -r hash email sig_status signer; do
+            echo "➡ Commit: $hash"
+            echo "   Author Email: $email"
+            echo "   Signature: $sig_status by $signer"
+
+            # Check approved emails
+            if [[ "$email" == *@hitachivantara.com ]] || [[ "$email" == *@hitachids.com ]] || [[ "$email" =~ @users\.noreply\.github\.com$ ]] || [[ "$email" == "noreply@github.com" ]]; then
+              echo "Allowed email domain"
             else
-              echo "Blocked: $email"
+              echo "Blocked email domain: $email"
               BLOCKED=true
+            fi
+
+            # Signature check
+            if [[ "$sig_status" != "G" && "$sig_status" != "U" ]]; then
+              echo "Commit not signed or not verified"
+              BLOCKED=true
+            else
+              echo "Commit is signed and verified"
             fi
           done
 
           if [ "$BLOCKED" = true ]; then
-            echo "Unauthorized email(s) detected. Failing the push."
+            echo "One or more commits have unauthorized emails or are not properly signed."
             exit 1
           else
-            echo "All commit emails are approved."
+            echo "All commits pass policy checks."
           fi
