@@ -31,11 +31,12 @@ User Pre-requisites:
 	Dedupe_Media_agent: "Deduplication-MediaAgent name"
 	HDPS_validate_certs: false
 
-   ### NOTE: Do not chnage tha variable in the mediaAgent_vault.yml file.
+   ### NOTE: Do not change variable in the mediaAgent_vault.yml file.
    
 ### 2. To trigger the YAML file to create the storage component:
    - Locate the YAML file: add_Media_Agents.yml
    - Run the following command:
 
      		ansible-playbook add_Media_Agents.yml
+
 
