@@ -1,0 +1,108 @@
+# ###########################################
+# !!! READ ME Before Writing Proxies.Yml !!!
+# ###########################################
+#
+# This file (proxies.yml) is an external file required when executing the host group auto-creation playbook for Veeam Plug-in version 2.2.
+# Based on the values entered in the required fields of the proxies list, host groups for the Veeam Plug-in will be automatically created.
+# When editing the proxies list, please follow the rules below.
+#
+# 1. The required fields for proxies are "name", "storage_port", and "wwns".
+#    Be sure to enter values for all required fields. Also, always enclose the values entered in the required fields in double quotation marks.
+#
+#  - name: A host group will be created for each name field.
+#          The name of the host group will automatically have "VBR_" prefixed to the value specified in the name field.
+#          Please ensure that names do not duplicate within the same storage_port.
+#          Specify the name using 1 to 64 single-byte alphanumeric characters.
+#          The only usable single-byte symbols are [. @ _ : - ]. *Hyphens (-) cannot be used at the beginning.
+#
+#  - storage_port: Enter the name of the storage port that is connected to the Veeam Proxy Server.
+#
+#  - wwns: Enter the WWN of the Veeam Proxy Server.
+#          Multiple WWNs can be written within a single wwns list.
+#          Ensure that there are no duplicate WWNs within the wwns list.
+#          Also, WWN values cannot be the same across different names that define the same storage_port.
+#
+# 2. Do not add any fields other than "name", "storage_port", and "wwns" to the proxies list.
+#
+# 3. Be sure to define the proxies list in the same structure as in the example below.
+#
+# <<Good Example-Single Proxy Server>>
+# proxies:
+#   - name: "Proxy1-CL1-C"
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#       - wwn: "BBBBBBBBBBBBBBBB"
+#
+#   - name: "Proxy1-CL3-C"
+#     storage_port: "CL3-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#       - wwn: "BBBBBBBBBBBBBBBB"
+#
+# <<Good Example-Multiple Proxy Servers>>
+# proxies:
+#   - name: "Proxy1-CL1-C"
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#       - wwn: "BBBBBBBBBBBBBBBB"
+#
+#   - name: "Proxy1-CL3-C"
+#     storage_port: "CL3-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#       - wwn: "BBBBBBBBBBBBBBBB"
+#
+#   - name: "Proxy2-CL1-C"
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "CCCCCCCCCCCCCCCC"
+#       - wwn: "DDDDDDDDDDDDDDDD"
+#
+#   - name: "Proxy2-CL3-C"
+#     storage_port: "CL3-C"
+#     wwns:
+#       - wwn: "CCCCCCCCCCCCCCCC"
+#       - wwn: "DDDDDDDDDDDDDDDD"
+#
+# 4. Refer to the following Bad examples to make sure your content complies with the rules.
+#
+# <<Bad Example-1>>
+# proxies:
+#   - name: Proxy1-CL1-C
+#     storage_port: CL1-C
+#     wwns:
+#       - wwn: AAAAAAAAAAAAAAAA  # [invalid because the required fields are not enclosed in double quotation marks]
+#
+# <<Bad Example-2>>
+# proxies:
+#   - name: "Proxy1-CL1-C"
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#
+#   - name: "Proxy1-CL1-C"  # [invalid because name: Proxy1-CL1-C is defined more than once in CL1-C]
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "BBBBBBBBBBBBBBBB"
+#
+# <<Bad Example-3>>
+# proxies:
+#   - name: "Proxy1-CL1-C"
+#     storage_port: "CL1-C"
+#     wwns:
+#       - wwn: "AAAAAAAAAAAAAAAA"
+#       - wwn: "AAAAAAAAAAAAAAAA"  # [invalid because the same wwn value: "AAAAAAAAAAAAAAAA" is defined more than once in CL1-C]
+#
+# --------------------------------------------------------------------------------------------------------------------------------
+proxies:
+  - name: "HG_for_Proxy-CL1-C"
+    storage_port: "CL1-C"
+    wwns:
+      - wwn: "10009440c9ce2c96"
+
+  - name: "HG_for_Proxy-CL3-C"
+    storage_port: "CL3-C"
+    wwns:
+      - wwn: "10009440c9ce2c97"

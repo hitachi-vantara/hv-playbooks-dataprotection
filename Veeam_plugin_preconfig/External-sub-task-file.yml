@@ -1,0 +1,67 @@
+---
+# 4-2-1. Filter proxy items for the target proxy
+- name: Create proxy_items for this proxy
+  ansible.builtin.set_fact:
+    proxy_items: "{{ proxies | selectattr('name', 'equalto', proxy_name) | list }}"
+
+# 4-2-2. Extract unique storage ports for the proxy
+- name: Create proxy_ports for this proxy
+  ansible.builtin.set_fact:
+    proxy_ports: "{{ proxy_items | map(attribute='storage_port') | unique | list }}"
+
+# 4-2-3. Collect used HostGroup information for proxy's ports
+- name: Get HostGroup facts for this proxy's ports
+  hitachivantara.vspone_block.vsp.hv_hg_facts:
+    connection_info: "{{ connection_info }}"
+    spec:
+      ports: "{{ proxy_ports }}"
+  register: hg_facts_this_proxy
+
+# 4-2-4. Convert used HostGroup numbers to integers
+- name: Collect used HG numbers for this proxy
+  ansible.builtin.set_fact:
+    used_hg_numbers: >-
+      {{ hg_facts_this_proxy.ansible_facts.hostGroups
+         | flatten
+         | map(attribute='host_group_id')
+         | select('match', '^[0-9]+$')
+         | map('int')
+         | unique
+         | list }}
+
+# 4-2-5. Find the smallest unused HostGroup number
+- name: Pick unused minimum HG number for this proxy
+  ansible.builtin.set_fact:
+    assigned_hg_number: "{{ hg_candidate_numbers | reject('in', used_hg_numbers) | min }}"
+
+# 4-2-5-5. Fail if no HostGroup numbers are available
+- name: Fail if no available HG number for this proxy
+  ansible.builtin.fail:
+    msg: "No available HostGroup number for '{{ proxy_name }}' (all numbers in use?)"
+  when: assigned_hg_number is undefined or assigned_hg_number is none
+
+# 4-2-6. Display the HostGroup number assignment
+- name: Show which HG number will be used for the next HostGroup(s)
+  ansible.builtin.debug:
+    msg: A HostGroup will be created using HostGroup number {{ assigned_hg_number }}.
+
+# 4-2-7. Create the HostGroups with the assigned number
+- name: Create HostGroups for this proxy (assigned_hg_number)
+  hitachivantara.vspone_block.vsp.hv_hg:
+    connection_info: "{{ connection_info }}"
+    state: "present"
+    spec:
+      name: "VBR_{{ item.name }}"
+      host_group_number: "{{ assigned_hg_number }}"
+      port: "{{ item.storage_port }}"
+      host_mode: "{{ host_mode }}"
+      host_mode_options: "{{ host_mode_options }}"
+      wwns: "{{ item.wwns }}"
+  loop: "{{ proxy_items }}"
+  loop_control:
+    loop_var: item
+
+# 4-2-8. Show debug info for HostGroup creation
+- name: Debug create info
+  ansible.builtin.debug:
+    msg: HostGroups have been created for ports {{ proxy_ports | join(', ') }} with HG number {{ assigned_hg_number }}.

@@ -1,0 +1,487 @@
+---
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#  Example : VSP One Storage Configuration for Hitachi Veeam Plug-in version Fiber Channel
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+- name: Create and configure resources for Hitachi Veeam Plug-in on VSP One storage
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - /root/.ansible/collections/ansible_collections/hitachivantara/vspone_block/playbooks/ansible_vault_vars/ansible_vault_storage_var.yml
+    # ======================================================================================================================#
+    # IMPORTANT * When you change the name or location of proxies.yml, make sure to update its absolute path as well.       #
+    # ======================================================================================================================#
+    - /root/proxies.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+    host_mode: "VMWARE_EXTENSION"
+    host_mode_options: [2, 22, 25, 40, 54, 63, 68, 91, 110]
+    hg_candidate_numbers: "{{ range(1, 255) | list }}"
+
+  tasks:
+#   # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#   #  Task 1 : Create DDP Pool
+#   # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#   - name: Create a DDP Pool for Veeam Plug-in
+#     hitachivantara.vspone_block.vsp.hv_ddp_pool:
+#       connection_info: "{{ connection_info }}"
+#       state: present
+#       spec:
+#         #  __________________________________________________________________________________________________
+#         # |                                       PRE-CHECK REQUIRED                                         |
+#         # |--------------------------------------------------------------------------------------------------|
+#         # |                           +++[Parameter Requirement for pool_id]+++                              |
+#         # |                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                  |
+#         # | * Please enter an unused pool id in the pool_id field.                                           |
+#         # |__________________________________________________________________________________________________|
+#         pool_id: 1
+#
+#         # ===================================================================================================#
+#         #                                         !!! MANDATORY !!!                                          #
+#         # ===================================================================================================#
+#         #                             +++[Parameter Requirement for pool_name]+++                            #
+#         #                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                #
+#         #  * Please make sure to use the following format for the pool name:                                 #
+#         #                                                                                                    #
+#         #                                   VBR_{any_value}                                                  #
+#         #                                                                                                    #
+#         #    (Example: VBR_DDP_Pool_for_Snapshot)                                                            #
+#         #                                                                                                    #
+#         #  Note: This naming rule is applicable only when creating a pool for use with the Plug-in.          #
+#         #                                                                                                    #
+#         # ===================================================================================================#
+#         pool_name: "VBR_DDP_Pool_for_Backup"
+#
+#         drives:
+#             #  ______________________________________________________________________________________________
+#             # |                                   PRE-CHECK REQUIRED                                         |
+#             # |----------------------------------------------------------------------------------------------|
+#             # |                      +++[Parameter Requirement for drive_type_code]+++                       |
+#             # |                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                           |
+#             # | * Please check the drive type code using the Maintenance Utility or CLI in advance and       |
+#             # |   then enter it in the drive_type_code field.                                                |
+#             # |______________________________________________________________________________________________|
+#           - drive_type_code: "SNS5B-R3R8NC"
+#
+#             #  ______________________________________________________________________________________________
+#             # |                                   PRE-CHECK REQUIRED                                         |
+#             # |----------------------------------------------------------------------------------------------|
+#             # |                     +++[Parameter Requirement for data_drive_count]+++                       |
+#             # |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                           |
+#             # | * Please enter at least 9 for data_drive_count.                                              |
+#             # |   If you do not specify data_drive_count, the recommended number will be set automatically.  |
+#             # |______________________________________________________________________________________________|
+#             data_drive_count: 9
+#     register: ddp_pool_result
+#
+#   - name: Debug ddp_pool_result
+#     ansible.builtin.debug:
+#       var: ddp_pool_result
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 2 : Rename the DDP Pool name
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Update the DDP Pool Settings
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          #  _______________________________________________________________________________________________
+          # |                                      PRE-CHECK REQUIRED                                       |
+          # |-----------------------------------------------------------------------------------------------|
+          # |                          +++[Parameter Requirement for pool_id]+++                            |
+          # |                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                |
+          # | * Please enter the id of an existing pool whose name you want to change in the pool_id field. |
+          # |_______________________________________________________________________________________________|
+          pool_id: 0
+
+          # ================================================================================================#
+          #                                        !!! MANDATORY !!!                                        #
+          # ================================================================================================#
+          #                           +++[Parameter Requirement for pool_name]+++                           #
+          #                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                               #
+          #  * Please make sure to use the following format for the pool name:                              #
+          #                                                                                                 #
+          #                                   VBR_{any_value}                                               #
+          #                                                                                                 #
+          #    (Example: VBR_DDP_Pool_for_Snapshot)                                                         #
+          #                                                                                                 #
+          #  Note: This naming rule is applicable only when creating a pool for use with the Plug-in.       #
+          #                                                                                                 #
+          # ================================================================================================#
+          pool_name: "VBR_Rename_Pool"
+      register: rename_ddp_pool_result
+
+    - name: Debug rename_the_pool_name_result
+      ansible.builtin.debug:
+        var: rename_ddp_pool_result
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 3 : Change port security setting of FC storage port by port id 1st
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Change port security setting of FC storage port by port id 1st
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          #  _________________________________________________________________________________________
+          # |                                     PRE-CHECK REQUIRED                                  |
+          # |-----------------------------------------------------------------------------------------|
+          # |                            +++[Parameter Requirement for port]+++                       |
+          # |                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                           |
+          # | * Please enter the storage port that is connected to the Veeam Proxy Server in the      |
+          # |   "port" field.                                                                         |
+          # |_________________________________________________________________________________________|
+          port: "CL1-C"
+
+          #  _________________________________________________________________________________________
+          # |                                     PRE-CHECK REQUIRED                                  |
+          # |-----------------------------------------------------------------------------------------|
+          # |                     +++[Parameter Requirement for enable_port_security]+++              |
+          # |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  |
+          # | * Please enter the value in the "enable_port_security" field according to the           |
+          # |   connection type between the Veeam Proxy Server and the storage system.                |
+          # |                                                                                         |
+          # |   Example:                                                                              |
+          # |   - FC Fabric (when connecting multiple servers and storage via a Fibre switch): "true" |
+          # |   - Direct Connection (when directly connecting a server and storage): "false"          |
+          # |_________________________________________________________________________________________|
+          enable_port_security: true
+      register: port_security_result_fc_1st
+
+    - name: Debug port_security_result_fc_1st
+      ansible.builtin.debug:
+        var: port_security_result_fc_1st
+
+    - name: Change fabric mode and port connection settings of FC storage port by port id 1st
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          #  _________________________________________________________________________________________________
+          # |                                        PRE-CHECK REQUIRED                                       |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                              +++[Parameter Requirement for port]+++                             |
+          # |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                 |
+          # | * Please enter the storage port that is connected to the Veeam Proxy Server in the "port" field.|
+          # |_________________________________________________________________________________________________|
+          port: "CL1-C"
+
+          #  _________________________________________________________________________________________________
+          # |                                        PRE-CHECK REQUIRED                                       |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                          +++[Parameter Requirement for fabric_mode]+++                          |
+          # |                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                              |
+          # | * Please enter "true" in the "fabric_mode" field when using fabric mode.                        |
+          # |   If you don't use fabric mode, set the "fabric_mode" field to "false".                         |
+          # |_________________________________________________________________________________________________|
+          fabric_mode: true
+
+          #  _________________________________________________________________________________________________
+          # |                                           REQUIREMENT                                           |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                       +++[Parameter Requirement for port_connection]+++                         |
+          # |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                             |
+          # | * Please enter "P2P" in the "port_connection" field.                                            |
+          # |   If you would like to use "FCAL", set the "port_connection" field to "FCAL".                   |
+          # |_________________________________________________________________________________________________|
+          port_connection: "P2P"
+      register: fabric_mode_and_port_connection_settings_result_1st
+
+    - name: Debug fabric_mode_and_port_connection_settings_result_1st
+      ansible.builtin.debug:
+        var: fabric_mode_and_port_connection_settings_result_1st
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 3 : Change port security setting of FC storage port by port id 2nd
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Change port security setting of FC storage port by port id 2nd
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          #  _________________________________________________________________________________________
+          # |                                     PRE-CHECK REQUIRED                                  |
+          # |-----------------------------------------------------------------------------------------|
+          # |                            +++[Parameter Requirement for port]+++                       |
+          # |                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                           |
+          # | * Please enter the storage port that is connected to the Veeam Proxy Server in the      |
+          # |   "port" field.                                                                         |
+          # |_________________________________________________________________________________________|
+          port: "CL3-C"
+
+          #  _________________________________________________________________________________________
+          # |                                     PRE-CHECK REQUIRED                                  |
+          # |-----------------------------------------------------------------------------------------|
+          # |                     +++[Parameter Requirement for enable_port_security]+++              |
+          # |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  |
+          # | * Please enter the value in the "enable_port_security" field according to the           |
+          # |   connection type between the Veeam Proxy Server and the storage system.                |
+          # |                                                                                         |
+          # |   Example:                                                                              |
+          # |   - FC Fabric (when connecting multiple servers and storage via a Fibre switch): "true" |
+          # |   - Direct Connection (when directly connecting a server and storage): "false"          |
+          # |_________________________________________________________________________________________|
+          enable_port_security: true
+      register: port_security_result_fc_2nd
+
+    - name: Debug port_security_result_fc_2nd
+      ansible.builtin.debug:
+        var: port_security_result_fc_2nd
+
+    - name: Change fabric mode and port connection settings of FC storage port by port id 2nd
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          #  _________________________________________________________________________________________________
+          # |                                        PRE-CHECK REQUIRED                                       |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                              +++[Parameter Requirement for port]+++                             |
+          # |                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                 |
+          # | * Please enter the storage port that is connected to the Veeam Proxy Server in the "port" field.|
+          # |_________________________________________________________________________________________________|
+          port: "CL3-C"
+
+          #  _________________________________________________________________________________________________
+          # |                                        PRE-CHECK REQUIRED                                       |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                          +++[Parameter Requirement for fabric_mode]+++                          |
+          # |                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                              |
+          # | * Please enter "true" in the "fabric_mode" field when using fabric mode.                        |
+          # |   If you don't use fabric mode, set the "fabric_mode" field to "false".                         |
+          # |_________________________________________________________________________________________________|
+          fabric_mode: true
+
+          #  _________________________________________________________________________________________________
+          # |                                           REQUIREMENT                                           |
+          # |-------------------------------------------------------------------------------------------------|
+          # |                       +++[Parameter Requirement for port_connection]+++                         |
+          # |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                             |
+          # | * Please enter "P2P" in the "port_connection" field.                                            |
+          # |   If you would like to use "FCAL", set the "port_connection" field to "FCAL".                   |
+          # |_________________________________________________________________________________________________|
+          port_connection: "P2P"
+      register: fabric_mode_and_port_connection_settings_result_2nd
+
+    - name: Debug fabric_mode_and_port_connection_settings_result_2nd
+      ansible.builtin.debug:
+        var: fabric_mode_and_port_connection_settings_result_2nd
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 4 : Create hostgroup
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # 4-1. Gather Unique Proxy Names
+    - name: Gather Unique Proxy Names
+      ansible.builtin.set_fact:
+        proxy_names: "{{ proxies | map(attribute='name') | unique | list }}"
+
+    # 4-2. Assign Host Group Numbers and Create Host Groups for Each Proxy
+    - name: Assign Host Group Numbers and Create Host Groups for Each Proxy
+      ansible.builtin.include_tasks:
+        file: External-sub-task-file.yml
+      vars:
+        proxy_name: "{{ item }}"
+      loop: "{{ proxy_names }}"
+      loop_control:
+        loop_var: item
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 5 : Create a Resource Group with the following resources
+    #  Resources : ldevs, ports, host groups
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Create a Resource Group with LDEVs and ports only
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_resource
+          # ==========================================================================================#
+          #                                     !!! MANDATORY !!!                                     #
+          # ==========================================================================================#
+          #                    +++[Parameter Requirement for Resource Group name]+++                  #
+          #                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                      #
+          #  * Please use the following format for the Resource Group name:                           #
+          #                                                                                           #
+          #                                 VBR_{any value}                                           #
+          #                                                                                           #
+          #  Note: This naming rule is applicable only when creating a Resource Group for use         #
+          #        with the Plug-in.                                                                  #
+          #                                                                                           #
+          # ==========================================================================================#
+          name: "VBR_RG"
+
+          #  _________________________________________________________________________________________
+          # |                                   PRE-CHECK REQUIRED                                    |
+          # |-----------------------------------------------------------------------------------------|
+          # |                         +++[Parameter Requirement for ldevs]+++                         |
+          # |                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                             |
+          # | * Backups using the Hitachi Veeam Plug-in are performed with unused LDEVs that are      |
+          # |   registered in the resource group for VBR.                                             |
+          # |   Therefore, you need to register a sufficient number of unused LDEVs in                |
+          # |   the resource group.                                                                   |
+          # |                                                                                         |
+          # |   Please enter the ids of the unused LDEVs in the "ldevs" field.                        |
+          # |                                                                                         |
+          # | Note: The maximum number of unused LDEVs that can be specified at one time is 2,048.    |
+          # |       If you specify more than 2,048 unused LDEVs, the task may fail.                   |
+          # |_________________________________________________________________________________________|
+          ldevs: "{{ range(100, 2149) | list }}"
+
+          #  _________________________________________________________________________________________
+          # |                                   PRE-CHECK REQUIRED                                    |
+          # |-----------------------------------------------------------------------------------------|
+          # |                         +++[Parameter Requirement for ports]+++                         |
+          # |                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                             |
+          # | * Please enter the storage ports connected to the Veeam Proxy Server in                 |
+          # |   the "ports" field.                                                                    |
+          # |                                                                                         |
+          # |_________________________________________________________________________________________|
+          ports: ["CL1-C", "CL3-C"]
+      register: resource_group_ldev_ports_result
+
+    - name: Debug resource_group_ldev_ports_result
+      ansible.builtin.debug:
+        var: resource_group_ldev_ports_result
+
+    - name: Add Host Group
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_resource
+          # ==========================================================================================#
+          #                                     !!! MANDATORY !!!                                     #
+          # ==========================================================================================#
+          #                    +++[Parameter Requirement for Resource Group name]+++                  #
+          #                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                      #
+          #  * Please enter the resource group name configured in the "name" field of                 #
+          #   "Create a Resource Group with LDEVs and ports only" in the name field.                  #
+          #                                                                                           #
+          #                                                                                           #
+          #  =========================================================================================#
+          name: "VBR_RG"
+
+          #  _________________________________________________________________________________________
+          # |                                   PRE-CHECK REQUIRED                                    |
+          # |-----------------------------------------------------------------------------------------|
+          # |                      +++[Parameter Requirement for host_groups]+++                      |
+          # |                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                          |
+          # | * Please enter the storage port that is connected to the Veeam Proxy Server in          |
+          # |   the "port" field and enter the host group name in the "name" field.                   |
+          # |                                                                                         |
+          # | Note: If you need to register multiple host groups, please enter them as shown below.   |
+          # |                                                                                         |
+          # | Example                                                                                 |
+          # | host_groups:                                                                            |
+          # |   - port: "CL1-A"                                                                       |
+          # |     name: "VBR_host_group_1"                                                            |
+          # |   - port: "CL1-A"                                                                       |
+          # |     name: "VBR_host_group_2"                                                            |
+          # |                                                                                         |
+          # |_________________________________________________________________________________________|
+          host_groups:
+            - port: "CL1-C"
+              name: "VBR_HG_for_Proxy-CL1-C"
+            - port: "CL3-C"
+              name: "VBR_HG_for_Proxy-CL3-C"
+      register: resource_group_hostgroup_result
+
+    - name: Debug resource_group_hostgroup_result
+      ansible.builtin.debug:
+        var: resource_group_hostgroup_result
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 6 : Create a User Group
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Create a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          # _____________________________________________________________________________________
+          #                                     REQUIREMENT                                      |
+          # -------------------------------------------------------------------------------------|
+          #                  +++[Parameter Requirement for user group name]+++                   |
+          #                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                       |
+          #  * Please enter a user group name in the name field.                                 |
+          #                                                                                      |
+          #    (Example: "Storage Administrator (Provisioning)")                                 |
+          #                                                                                      |
+          # _____________________________________________________________________________________|
+          name: "Storage Administrator (Provisioning)"
+
+          # =====================================================================================#
+          #                                  !!! MANDATORY !!!                                   #
+          # =====================================================================================#
+          #                     +++[Parameter Requirement for role_names]+++                     #
+          #                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                         #
+          #  * Please make sure to copy and paste the following value in the "role_names" field: #
+          #                                                                                      #
+          #   "STORAGE_ADMIN_LOCAL_COPY", "STORAGE_ADMIN_PROVISION", "STORAGE_ADMIN_VIEW_ONLY"   #
+          #                                                                                      #
+          # =====================================================================================#
+          role_names: ["STORAGE_ADMIN_LOCAL_COPY", "STORAGE_ADMIN_PROVISION", "STORAGE_ADMIN_VIEW_ONLY"]
+
+          #  ____________________________________________________________________________________
+          # |                                PRE-CHECK REQUIRED                                  |
+          # |------------------------------------------------------------------------------------|
+          # |              +++[Parameter Requirement for resource_group_ids]+++                  |
+          # |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                      |
+          # |* Please enter the following resource group ID in the resource_group_ids field:     |
+          # |                                                                                    |
+          # |  - Resource group of the meta_resource for the production system                   |
+          # |  - Resource group for Veeam Backup & Replication                                   |
+          # |                                                                                    |
+          # |____________________________________________________________________________________|
+          resource_group_ids: [0, 1]
+      register: user_group_result
+
+    - name: Debug user_group_result
+      ansible.builtin.debug:
+        var: user_group_result
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    #  Task 7 : Create a User Account
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    - name: Create a User Account
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          # _____________________________________________________________________________________
+          #                                      REQUIREMENT                                     |
+          # -------------------------------------------------------------------------------------|
+          #                  +++[Parameter Requirement for user account name]+++                 |
+          #                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                     |
+          #  * Please enter a user account name in the "name" field.                             |
+          #                                                                                      |
+          #    (Example: "Veeam_user")                                                           |
+          #                                                                                      |
+          #  Note: The user account name is required when registering Hitachi storage with       |
+          #        Veeam Backup & Replication.                                                   |
+          # _____________________________________________________________________________________|
+          name: "Veeam_user"
+
+          # _____________________________________________________________________________________
+          #                                      REQUIREMENT                                     |
+          # -------------------------------------------------------------------------------------|
+          #                       +++[Parameter Requirement for password]+++                     |
+          #                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                         |
+          #  * Please enter a password of user account in the "password" field.                  |
+          #                                                                                      |
+          #  Note: The password is required when registering Hitachi storage with                |
+          #        Veeam Backup & Replication.                                                   |
+          # _____________________________________________________________________________________|
+          password: "password"
+
+          #  ____________________________________________________________________________________
+          # |                                PRE-CHECK REQUIRED                                  |
+          # |------------------------------------------------------------------------------------|
+          # |                 +++[Parameter Requirement for user group_names]+++                 |
+          # |                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                     |
+          # | * Please enter the name of the Veeam-only user group in the "group_names" field.   |
+          # |____________________________________________________________________________________|
+          group_names: ["Storage Administrator (Provisioning)"]
+      register: user_result
+
+    - name: Debug user_result
+      ansible.builtin.debug:
+        var: user_result
